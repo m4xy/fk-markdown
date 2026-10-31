@@ -12,12 +12,13 @@ Markdowns.render("# Hello\n\nSome *emphasis*, and [a link](https://fckt.dev).")
 
 It reads headings, with `#` or underlined; paragraphs; fenced code, with the language it's in, and
 indented code; quotes; lists, of `-`, `*` or `+`, or numbered, nested by indenting an item's lines
-to its text, and tight unless a blank line is between their items; and rules. In a paragraph, it
+to its text, and tight unless a blank line is between their items; rules; and tables, as GitHub
+writes them, with each column aligned as its delimiter row says. In a paragraph, it
 reads emphasis and strong emphasis, code spans, links and images, with titles, autolinks in `<>`,
 backslash escapes, and line breaks, two spaces or a backslash at a line's end.
 
 HTML written in Markdown is text, escaped as any text is, so what anyone wrote can be shown as it
-is. Reference links, tables and HTML blocks aren't read yet.
+is. Reference links and HTML blocks aren't read yet.
 
 `Markdowns.parse` gives the document's blocks, `Block` and `Inline` values, to look through or
 change; `Markdowns.html` writes blocks as fk-html's `Html`, to put in a page built with it; and

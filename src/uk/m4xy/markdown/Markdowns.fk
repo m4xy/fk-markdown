@@ -31,7 +31,23 @@ module Markdowns {
       items.forEach { item(it, isTight) }
     }
     Rule -> hr()
+    Table(alignments, header, rows) -> table {
+      thead { tr { cells("th", alignments, header) } }
+      if (rows.isNotEmpty()) tbody { rows.forEach { row -> tr { cells("td", alignments, row) } } }
+      else Unit
+    }
   }
+
+  @Markup private cells(tag: String, alignments: List<Alignment>, row: List<List<Inline>>): Unit =
+    row.zip(alignments).forEach { cell, alignment ->
+      aligned = when (alignment) {
+        Left -> [attribute("style", "text-align: left")]
+        Center -> [attribute("style", "text-align: center")]
+        Right -> [attribute("style", "text-align: right")]
+        Unaligned -> []
+      }
+      element(tag, aligned) { inlines(cell) }
+    }
 
   @Markup private item(blocks: List<Block>, tight: Boolean): Unit =
     li { blocks.forEach { block(it, tight) } }

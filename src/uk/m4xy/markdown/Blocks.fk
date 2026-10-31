@@ -18,7 +18,10 @@ internal module Blocks {
           else if (isQuoted(line)) quote(lines)
           else when (markerOf(line)) {
             Some(marker) -> listed(lines, marker)
-            None -> if (indentOf(line) >= 4) indented(lines) else paragraph(lines)
+            None ->
+              if (indentOf(line) >= 4) indented(lines)
+              else if (startsTable(lines)) table(lines)
+              else paragraph(lines)
           }
       }
   }
@@ -182,6 +185,58 @@ internal module Blocks {
     fenceOf(line).isSome() || headingOf(line).isSome() || isRule(line) || isQuoted(line) ||
       markerOf(line).isSome()
 
+  // Whether lines start with a table: a row, then a delimiter row with as many cells.
+  private startsTable(lines: List<String>): Boolean = when (lines) {
+    [header, delimiter, *_] -> header.contains("|") && alignmentsOf(delimiter).map { a ->
+      a.size == cellsOf(header).size
+    }.getOrElse(false)
+    else -> false
+  }
+
+  private table(lines: List<String>): List<Block> = {
+    header = lines.firstOrNone().getOrElse("")
+    alignments = lines.drop(1).firstOrNone().flatMap { alignmentsOf(it) }.getOrElse([])
+    body = lines.drop(2).takeWhile { !it.isBlank() && !startsBlock(it) }
+    width = alignments.size
+    // A row of more cells than the header's has the rest left out, and one of fewer, empty ones.
+    fitted = (row: String) -> {
+      cells = cellsOf(row).take(width)
+      (cells + (0..<(width - cells.size)).map { "" }).map { Inlines.of(it) }
+    }
+    [Table(alignments, fitted(header), body.map { fitted(it) })] + blocks(lines.drop(2 + body.size))
+  }
+
+  // A delimiter row's alignments, or None if it isn't one.
+  private alignmentsOf(line: String): Option<List<Alignment>> = {
+    cells = cellsOf(line)
+    aligned = cells.map { cell ->
+      left = cell.startsWith(":")
+      right = cell.endsWith(":")
+      dashes = cell.removePrefix(":").removeSuffix(":")
+      if (dashes.isEmpty() || !dashes.toList().all { it == '-' }) None
+      else Some(if (left && right) Center else if (left) Left else if (right) Right else Unaligned)
+    }
+    if (cells.isNotEmpty() && aligned.all { it.isSome() } && line.contains("-")) Some(
+      aligned.map { it.getOrElse(Unaligned) },
+    )
+    else None
+  }
+
+  // A row's cells, between its pipes, each trimmed: a pipe escaped, \|, is in its cell.
+  private cellsOf(row: String): List<String> = {
+    trimmed = row.trim()
+    inner = trimmed.removePrefix("|")
+    bounded = if (inner.endsWith("|") && !inner.endsWith("\\|")) inner.dropLast(1) else inner
+    split(bounded.toList(), [], []).map { it.trim() }
+  }
+
+  private split(cs: List<Char>, cell: List<Char>, cells: List<String>): List<String> = when (cs) {
+    [] -> cells + [text(cell)]
+    ['\\', '|', *rest] -> split(rest, cell + ['|'], cells)
+    ['|', *rest] -> split(rest, [], cells + [text(cell)])
+    [c, *rest] -> split(rest, cell + [c], cells)
+  }
+
   // Indented code: lines indented four or more, and blank lines between them.
   private indented(lines: List<String>): List<Block> = {
     taken = lines.takeWhile { it.isBlank() || indentOf(it) >= 4 }
@@ -210,6 +265,7 @@ internal module Blocks {
         else if (underline(line, '=')) (found, Some(1))
         else if (underline(line, '-')) (found, Some(2))
         else if (startsBlock(line) && !numberedFromOtherThanOne(line)) (found, None)
+        else if (startsTable(lines)) (found, None)
         else paragraphLines(rest, found + [line])
       [] -> (found, None)
     }

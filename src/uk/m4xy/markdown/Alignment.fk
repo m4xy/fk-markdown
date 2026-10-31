@@ -1,0 +1,7 @@
+// How a table's column is aligned, as its delimiter row says: :--, :-:, --: or --.
+type Alignment {
+  Left,
+  Center,
+  Right,
+  Unaligned,
+}

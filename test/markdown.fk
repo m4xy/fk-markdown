@@ -97,3 +97,20 @@ md(text: String): String = Markdowns.render(text)
   assertEquals("<blockquote><ul><li>in</li></ul></blockquote>", md("> - in"))
   assertEquals("<p>2 * 3 * 4</p>", md("2 * 3 * 4"))
 }
+
+@Test tables() = {
+  assertEquals(
+    """<table><thead><tr><th style="text-align: left">Name</th><th style="text-align: center">Says</th><th style="text-align: right">Times</th></tr></thead><tbody><tr><td style="text-align: left"><code>greet</code></td><td style="text-align: center">hi <em>there</em></td><td style="text-align: right">2</td></tr><tr><td style="text-align: left">a | b</td><td style="text-align: center"></td><td style="text-align: right"></td></tr></tbody></table><p>after</p>""",
+    md(
+      "| Name | Says | Times |\n|:--|:-:|--:|\n| `greet` | hi *there* | 2 |\n| a BACKSLASH| b |\n\nafter".replace(
+        "BACKSLASH",
+        "\\",
+      ),
+    ),
+  )
+  assertEquals(
+    "<table><thead><tr><th>a</th><th>b</th></tr></thead></table>",
+    md("a | b\n--- | ---"),
+  )
+  assertEquals("<p>a | b\nnot | a | table</p>", md("a | b\nnot | a | table"))
+}

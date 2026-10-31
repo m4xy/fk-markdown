@@ -14,4 +14,6 @@ type Block {
   NumberedList(start: Int, items: List<List<Block>>, tight: Boolean),
   // --- A line across.
   Rule,
+  // | A | table |, its columns' alignments, its header's cells, and its rows'.
+  Table(alignments: List<Alignment>, header: List<List<Inline>>, rows: List<List<List<Inline>>>),
 }
