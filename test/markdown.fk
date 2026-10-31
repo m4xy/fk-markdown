@@ -123,3 +123,17 @@ md(text: String): String = Markdowns.render(text)
   """<h2 id="effects-with-operations">Effects <em>with</em> operations</h2><h2 id="effects-with-operations-1">Effects with operations</h2>""",
   md("## Effects *with* operations\n## Effects with operations"),
 )
+
+// Code can be highlighted by what's given to, as its language says.
+@Test codeIsHighlightedAsAsked() = assertEquals(
+  """<pre><code class="language-fckt"><b>x</b> = 1
+</code></pre><pre><code>y &lt; 2
+</code></pre>""",
+  uk.m4xy.html.Htmls.render(
+    Markdowns.htmlWith(
+      Markdowns.parse("```fckt\nx = 1\n```\n\n```\ny < 2\n```"),
+    ) { language, code ->
+      if (language == Some("fckt")) Some(uk.m4xy.html.Raw("<b>x</b>" + code.drop(1))) else None
+    },
+  ),
+)

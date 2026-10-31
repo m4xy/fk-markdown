@@ -14,8 +14,12 @@ module Markdowns {
   render(text: String): String = Htmls.render(html(parse(text)))
 
   // The blocks, as HTML.
-  html(blocks: List<Block>): Html = {
-    slugs = Slugs(emptyMap())
+  html(blocks: List<Block>): Html = htmlWith(blocks) { _, _ -> None }
+
+  // The blocks, as HTML, each code block's code as highlight writes it, given the language it's
+  // in and the code, if it does; as text if it doesn't.
+  htmlWith(blocks: List<Block>, highlight: (Option<String>, String) -> Option<Html>): Html = {
+    slugs = Writing(emptyMap(), highlight)
     markup { blocks.forEach { block(it, false, slugs) } }
   }
 
@@ -25,11 +29,14 @@ module Markdowns {
     c.isLetterOrDigit() || c == ' ' || c == '-' || c == '_'
   }.map { if (it == ' ') "-" else it.toString() }.joinToString("")
 
-  // The ids given so far, and how many times each, as a heading of the same text again is
-  // effects-1, then effects-2.
-  private type Slugs(var used: Map<String, Int>)
+  // What writing a document keeps: the ids given so far, and how many times each, as a heading of
+  // the same text again is effects-1, then effects-2; and what highlights code.
+  private type Writing(
+    var used: Map<String, Int>,
+    highlight: (Option<String>, String) -> Option<Html>,
+  )
 
-  @Mutating private slugged(slugs: Slugs, content: List<Inline>): String = {
+  @Mutating private slugged(slugs: Writing, content: List<Inline>): String = {
     base = slugOf(uk.m4xy.markdown.Inlines.plainText(content))
     times = slugs.used.getOrDefault(base, 0)
     slugs.used = slugs.used.put(base, times + 1)
@@ -37,14 +44,19 @@ module Markdowns {
   }
 
   // A block, its paragraphs as their text alone if it's in a tight list's item.
-  @Markup @Mutating private block(b: Block, tight: Boolean, slugs: Slugs): Unit = when (b) {
+  @Markup @Mutating private block(b: Block, tight: Boolean, slugs: Writing): Unit = when (b) {
     Heading(level, content) -> element(
       "h$level",
       [id(slugged(slugs, content))],
     ) { inlines(content) }
     Paragraph(content) -> if (tight) inlines(content) else p { inlines(content) }
     CodeBlock(language, source) -> pre {
-      code(language.map { [classes(["language-$it"])] }.getOrElse([])) { text(source) }
+      code(language.map { [classes(["language-$it"])] }.getOrElse([])) {
+        when (slugs.highlight(language, source)) {
+          Some(highlighted) -> raw(Htmls.render(highlighted))
+          None -> text(source)
+        }
+      }
     }
     Quote(blocks) -> blockquote { blocks.forEach { block(it, false, slugs) } }
     BulletList(items, isTight) -> ul { items.forEach { item(it, isTight, slugs) } }
@@ -72,7 +84,7 @@ module Markdowns {
       element(tag, aligned) { inlines(cell) }
     }
 
-  @Markup @Mutating private item(blocks: List<Block>, tight: Boolean, slugs: Slugs): Unit =
+  @Markup @Mutating private item(blocks: List<Block>, tight: Boolean, slugs: Writing): Unit =
     li { blocks.forEach { block(it, tight, slugs) } }
 
   @Markup private inlines(content: List<Inline>): Unit = content.forEach { i ->
