@@ -23,6 +23,26 @@ module Markdowns {
     markup { blocks.forEach { block(it, false, slugs) } }
   }
 
+  // The document's headings, in order, each with its level, its text, and the id html gives it,
+  // as a page's table of contents lists them.
+  headings(blocks: List<Block>): List<(Int, String, String)> = {
+    slugs = Writing(emptyMap()) { _, _ -> None }
+    headingsIn(blocks, slugs)
+  }
+
+  @Mutating private headingsIn(blocks: List<Block>, slugs: Writing): List<(Int, String, String)> =
+    blocks.flatMap { b ->
+      when (b) {
+        Heading(level, content) -> [
+          (level, uk.m4xy.markdown.Inlines.plainText(content), slugged(slugs, content)),
+        ]
+        Quote(inner) -> headingsIn(inner, slugs)
+        BulletList(items, _) -> items.flatMap { headingsIn(it, slugs) }
+        NumberedList(_, items, _) -> items.flatMap { headingsIn(it, slugs) }
+        else -> []
+      }
+    }
+
   // What a heading's id is, as GitHub makes it: its text lower-cased, a space a -, and anything but
   // letters, digits, - and _ left out. "Effects with operations" is effects-with-operations.
   slugOf(text: String): String = text.trim().lowercase().toList().filter { c ->

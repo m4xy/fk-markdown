@@ -25,7 +25,8 @@ change; `Markdowns.html` writes blocks as fk-html's `Html`, to put in a page bui
 `Markdowns.render` does both, to text. `Markdowns.htmlWith` takes a function that highlights code:
 given a code block's language and its code, it gives the block's HTML, or `None` to show it as text. Each heading has an id, as GitHub gives one, so a link
 to `#effects-with-operations` goes to the heading "Effects with operations"; `Markdowns.slugOf`
-says what a heading's id is.
+says what a heading's id is, and `Markdowns.headings` lists a document's headings with their ids,
+for a table of contents.
 
 ## The command
 
