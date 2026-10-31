@@ -7,7 +7,7 @@ Markdown for fckt: read as CommonMark reads its core, and written as HTML with
 import uk.m4xy.markdown.Markdowns
 
 Markdowns.render("# Hello\n\nSome *emphasis*, and [a link](https://fckt.dev).")
-// <h1>Hello</h1><p>Some <em>emphasis</em>, and <a href="https://fckt.dev">a link</a>.</p>
+// <h1 id="hello">Hello</h1><p>Some <em>emphasis</em>, and <a href="https://fckt.dev">a link</a>.</p>
 ```
 
 It reads headings, with `#` or underlined; paragraphs; fenced code, with the language it's in, and
