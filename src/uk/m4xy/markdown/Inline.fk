@@ -1,0 +1,16 @@
+// What's in a heading or a paragraph, as Markdowns.parse reads it.
+type Inline {
+  Plain(text: String),
+  // *emphasis*
+  Emphasis(content: List<Inline>),
+  // **strong**
+  Strong(content: List<Inline>),
+  // `code`
+  CodeSpan(code: String),
+  // [content](url "title"), or <url>.
+  Link(content: List<Inline>, url: String, title: Option<String>),
+  // ![alt](url "title")
+  Image(alt: String, url: String, title: Option<String>),
+  // A line ended with two spaces, or a backslash: a line break, where a line's end is only a space.
+  LineBreak,
+}

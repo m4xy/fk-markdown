@@ -1,0 +1,6 @@
+// fk-markdown's command: Markdown to HTML, from files or standard input.
+import uk.m4xy.kiln.fckt.Fckt
+
+project = Project(name = "markdown", dependencies = [projectAt("..")])
+
+plugins = [Fckt()]

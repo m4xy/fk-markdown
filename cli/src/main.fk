@@ -1,0 +1,38 @@
+import fckt.io.Console
+import fckt.io.Channels.*
+import fckt.io.Paths.*
+import fckt.io.Files.*
+import fckt.io.Process
+import uk.m4xy.html.Htmls
+import uk.m4xy.html.Htmls.*
+import uk.m4xy.html.Tags.*
+import uk.m4xy.markdown.Markdowns
+
+// markdown [--page <title>] [<file>...]: the files, or what's read from standard input, as HTML;
+// with --page, a whole document of that title.
+main(args: List<String>) = {
+  (heading, files) = when (args) {
+    ["--page", name, *rest] -> (Some(name), rest)
+    else -> (None, args)
+  }
+  missing = files.filter { !path(it).exists() }
+  if (missing.isNotEmpty()) {
+    printError("markdown: there's no ${missing.joinToString(", ")}")
+    exit(1)
+  }
+  source = if (files.isEmpty()) readingFrom(standardInput) { remainingText() }
+  else files.map { path(it).readText() }.joinToString("\n\n")
+  content = Markdowns.html(Markdowns.parse(source))
+  println(when (heading) {
+    Some(name) -> page {
+      html {
+        head {
+          meta([attribute("charset", "utf-8")])
+          title { text(name) }
+        }
+        body { raw(Htmls.render(content)) }
+      }
+    }
+    None -> Htmls.render(content)
+  })
+}

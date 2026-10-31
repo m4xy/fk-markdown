@@ -1,0 +1,99 @@
+import uk.m4xy.fktests.api.Test
+import uk.m4xy.markdown.Markdowns
+
+md(text: String): String = Markdowns.render(text)
+
+@Test headings() = {
+  assertEquals("<h1>One</h1><h3>Three</h3>", md("# One\n### Three ###"))
+  assertEquals("<h1>Over</h1><h2>Under</h2>", md("Over\n====\n\nUnder\n---"))
+  assertEquals("<p>#Not one</p>", md("#Not one"))
+}
+
+@Test paragraphsAreLinesBetweenBlankOnes() = assertEquals(
+  "<p>one\ntwo</p><p>three</p>",
+  md("one\n  two\n\n\nthree\n"),
+)
+
+@Test emphasis() = {
+  assertEquals(
+    "<p><em>a</em> <strong>b</strong> <strong><em>c</em></strong></p>",
+    md("*a* **b** ***c***"),
+  )
+  assertEquals("<p><em>a <strong>b</strong> c</em></p>", md("*a **b** c*"))
+  assertEquals("<p>snake_case_name and * alone</p>", md("snake_case_name and * alone"))
+  assertEquals("<p><em>under</em> scores</p>", md("_under_ scores"))
+}
+
+@Test codeSpansAreAsWritten() = {
+  assertEquals("<p><code>a *b* &lt;c&gt;</code></p>", md("`a *b* <c>`"))
+  assertEquals("<p><code>has ` in it</code></p>", md("`` has ` in it ``"))
+}
+
+@Test linksAndImages() = {
+  assertEquals(
+    """<p>See <a href="https://fckt.dev" title="Home">the <em>site</em></a>.</p>""",
+    md("See [the *site*](https://fckt.dev \"Home\")."),
+  )
+  assertEquals("""<p><img src="cat.png" alt="a cat"></p>""", md("![a *cat*](cat.png)"))
+  assertEquals("""<p><a href="https://x.y/z">https://x.y/z</a></p>""", md("<https://x.y/z>"))
+  assertEquals("<p>[not a link] (here)</p>", md("[not a link] (here)"))
+}
+
+@Test escapesAndBreaks() = {
+  assertEquals("<p>*not* emphasis</p>", md("\\*not\\* emphasis"))
+  assertEquals("<p>one<br>two<br>three</p>", md("one  \ntwo\\\nthree"))
+}
+
+@Test htmlIsText() = assertEquals(
+  "<p>&lt;script&gt;alert(1)&lt;/script&gt; &amp; more</p>",
+  md("<script>alert(1)</script> & more"),
+)
+
+@Test code() = {
+  assertEquals(
+    """<pre><code class="language-kotlin">main() = println("*hi*")
+</code></pre>""",
+    md("```kotlin\nmain() = println(\"*hi*\")\n```"),
+  )
+  assertEquals(
+    "<pre><code>indented\n  more\n</code></pre><p>after</p>",
+    md("    indented\n      more\n\nafter"),
+  )
+}
+
+@Test quotes() = assertEquals(
+  "<blockquote><h2>Said</h2><p>so <em>there</em></p></blockquote><p>after</p>",
+  md("> ## Said\n> so *there*\n\nafter"),
+)
+
+@Test tightAndLooseLists() = {
+  assertEquals("<ul><li>one</li><li>two</li></ul>", md("- one\n- two"))
+  assertEquals("<ul><li><p>one</p></li><li><p>two</p></li></ul>", md("- one\n\n- two"))
+  assertEquals("""<ol start="3"><li>c</li><li>d</li></ol>""", md("3. c\n4. d"))
+}
+
+@Test listsNest() = assertEquals(
+  "<ul><li>fruit<ul><li>apple</li><li>pear</li></ul></li><li>bread</li></ul>",
+  md("- fruit\n  - apple\n  - pear\n- bread"),
+)
+
+@Test rules() = assertEquals("<p>a</p><hr><p>b</p>", md("a\n\n***\n\nb"))
+
+@Test edges() = {
+  assertEquals("<p>*<em>a</em></p>", md("**a*"))
+  assertEquals(
+    """<p><a href="https://en.wikipedia.org/wiki/F_(x)">F</a></p>""",
+    md("[F](https://en.wikipedia.org/wiki/F_(x))"),
+  )
+  assertEquals("<h1>C#</h1>", md("# C#"))
+  assertEquals("<h2>Title</h2>", md("## Title ##"))
+  assertEquals(
+    "<ol><li><p>step</p><pre><code>run it\n</code></pre></li><li><p>done</p></li></ol>",
+    md("1. step\n\n   ```\n   run it\n   ```\n2. done"),
+  )
+  assertEquals("<p>text</p><ul><li>item</li></ul>", md("text\n- item"))
+  assertEquals("<p>In\n1985. a year</p>", md("In\n1985. a year"))
+  assertEquals("<ul><li>a\nlazy</li></ul>", md("- a\nlazy"))
+  assertEquals("<blockquote><ul><li>in</li></ul></blockquote>", md("> - in"))
+  assertEquals("<p>2 * 3 * 4</p>", md("2 * 3 * 4"))
+}

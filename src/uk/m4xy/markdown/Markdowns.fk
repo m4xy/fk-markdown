@@ -1,0 +1,52 @@
+import uk.m4xy.html.*
+import uk.m4xy.html.Htmls.*
+import uk.m4xy.html.Tags.*
+import uk.m4xy.markdown.Blocks
+
+// Markdown, read as CommonMark reads its core, and written as HTML with fk-html: headings,
+// paragraphs, code, quotes, lists, rules, emphasis, code spans, links and images. HTML in it is
+// text, escaped as any is, so what anyone wrote can be shown as it is.
+module Markdowns {
+  // The document's blocks.
+  parse(text: String): List<Block> = Blocks.of(text)
+
+  // The document, as HTML text.
+  render(text: String): String = Htmls.render(html(parse(text)))
+
+  // The blocks, as HTML.
+  html(blocks: List<Block>): Html = markup { blocks.forEach { block(it, false) } }
+
+  // A block, its paragraphs as their text alone if it's in a tight list's item.
+  @Markup private block(b: Block, tight: Boolean): Unit = when (b) {
+    Heading(level, content) -> element("h$level") { inlines(content) }
+    Paragraph(content) -> if (tight) inlines(content) else p { inlines(content) }
+    CodeBlock(language, source) -> pre {
+      code(language.map { [classes(["language-$it"])] }.getOrElse([])) { text(source) }
+    }
+    Quote(blocks) -> blockquote { blocks.forEach { block(it, false) } }
+    BulletList(items, isTight) -> ul { items.forEach { item(it, isTight) } }
+    NumberedList(start, items, isTight) -> ol(
+      if (start == 1) [] else [attribute("start", "$start")],
+    ) {
+      items.forEach { item(it, isTight) }
+    }
+    Rule -> hr()
+  }
+
+  @Markup private item(blocks: List<Block>, tight: Boolean): Unit =
+    li { blocks.forEach { block(it, tight) } }
+
+  @Markup private inlines(content: List<Inline>): Unit = content.forEach { i ->
+    when (i) {
+      Plain(value) -> text(value)
+      Emphasis(inner) -> em { inlines(inner) }
+      Strong(inner) -> strong { inlines(inner) }
+      CodeSpan(value) -> code { text(value) }
+      Link(inner, url, title) -> a(url, title.map { [attribute("title", it)] }.getOrElse([])) {
+        inlines(inner)
+      }
+      Image(alt, url, title) -> img(url, alt, title.map { [attribute("title", it)] }.getOrElse([]))
+      LineBreak -> br()
+    }
+  }
+}

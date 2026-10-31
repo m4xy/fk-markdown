@@ -1,0 +1,17 @@
+// A block of a Markdown document, as Markdowns.parse reads it.
+type Block {
+  // # A heading, its level 1 to 6.
+  Heading(level: Int, content: List<Inline>),
+  Paragraph(content: List<Inline>),
+  // Code, as it's written, fenced with what language it's in, or indented.
+  CodeBlock(language: Option<String>, code: String),
+  // > A quote, of blocks of its own.
+  Quote(blocks: List<Block>),
+  // - Items, each of blocks of its own: tight when no blank line is between them, so each item's
+  // paragraphs are written as their text alone.
+  BulletList(items: List<List<Block>>, tight: Boolean),
+  // 1. Items, numbered from start.
+  NumberedList(start: Int, items: List<List<Block>>, tight: Boolean),
+  // --- A line across.
+  Rule,
+}

@@ -1,0 +1,246 @@
+// What's in a heading or a paragraph, read from its text: emphasis and strong emphasis, code spans,
+// links, images and autolinks, backslash escapes, and line breaks. Anything else, HTML among it, is
+// text.
+internal module Inlines {
+  of(text: String): List<Inline> = joined(scan(text.toList(), None))
+
+  // The inlines in cs, prev the character before them.
+  private scan(cs: List<Char>, prev: Option<Char>): List<Inline> = when (cs) {
+    [] -> []
+    ['\\', '\n', *rest] -> [LineBreak] + scan(rest, Some('\n'))
+    ['\\', c, *rest] if isPunctuation(c) -> [Plain(c.toString())] + scan(rest, Some(c))
+    ['`', *_] -> {
+      ticks = run(cs, '`')
+      after = cs.drop(ticks)
+      when (codeEnd(after, ticks, [])) {
+        Some(found) -> {
+          (code, rest) = found
+          [CodeSpan(spanText(code))] + scan(rest, Some('`'))
+        }
+        None -> [Plain(text(cs.take(ticks)))] + scan(after, Some('`'))
+      }
+    }
+    ['!', '[', *rest] -> when (linked(rest)) {
+      Some(found) -> {
+        (label, url, title, after) = found
+        [Image(plainText(of(text(label))), url, title)] + scan(after, Some(')'))
+      }
+      None -> [Plain("!")] + scan(cs.drop(1), Some('!'))
+    }
+    ['[', *rest] -> when (linked(rest)) {
+      Some(found) -> {
+        (label, url, title, after) = found
+        [Link(of(text(label)), url, title)] + scan(after, Some(')'))
+      }
+      None -> [Plain("[")] + scan(rest, Some('['))
+    }
+    ['<', *rest] -> when (autolink(rest, [])) {
+      Some(found) -> {
+        (url, after) = found
+        [Link([Plain(url)], url, None)] + scan(after, Some('>'))
+      }
+      None -> [Plain("<")] + scan(rest, Some('<'))
+    }
+    [c, *_] if c == '*' || c == '_' -> emphasis(cs, c, prev)
+    [' ', *_] -> {
+      spaces = run(cs, ' ')
+      after = cs.drop(spaces)
+      when (after) {
+        ['\n', *rest] -> [if (spaces >= 2) LineBreak else Plain("\n")] + scan(rest, Some('\n'))
+        [] -> []
+        else -> [Plain(" ".repeat(spaces))] + scan(after, Some(' '))
+      }
+    }
+    [c, *rest] -> [Plain(c.toString())] + scan(rest, Some(c))
+  }
+
+  // A run of delimiters, as many of them used as there's a closing run for, the rest text.
+  private emphasis(cs: List<Char>, d: Char, prev: Option<Char>): List<Inline> = {
+    count = run(cs, d)
+    after = cs.drop(count)
+    opens = after.firstOrNone().map { !it.isWhitespace() }.getOrElse(false) &&
+      (d != '_' || !prev.map { it.isLetterOrDigit() }.getOrElse(false))
+    tries = [min(count, 3), min(count, 3) - 1, min(count, 3) - 2].filter { it >= 1 }
+    found = if (opens) tries.fold(None) { done, n ->
+      if (done.isSome()) done else closing(after, d, n, None, []).map { (n, it) }
+    }
+    else None
+    when (found) {
+      Some(entry) -> {
+        (n, closed) = entry
+        (inside, rest) = closed
+        content = joined(scan(inside, Some(d)))
+        made = if (n == 3) Strong([Emphasis(content)]) else if (n == 2) Strong(content)
+        else Emphasis(content)
+        leftover = count - n
+        (if (leftover > 0) [Plain(d.toString().repeat(leftover))] else []) + [made] +
+          scan(rest, Some(d))
+      }
+      None -> [Plain(d.toString().repeat(count))] + scan(after, Some(d))
+    }
+  }
+
+  // What's before a run of n delimiters that can close, and what's after it.
+  private closing(
+    cs: List<Char>,
+    d: Char,
+    n: Int,
+    prev: Option<Char>,
+    inside: List<Char>,
+  ): Option<(List<Char>, List<Char>)> = when (cs) {
+    [] -> None
+    ['\\', c, *rest] -> closing(rest, d, n, Some(c), [c, '\\'] + inside)
+    [c, *_] if c == d -> {
+      count = run(cs, d)
+      next = cs.drop(count).firstOrNone()
+      closes = prev.map { !it.isWhitespace() }.getOrElse(false) &&
+        (d != '_' || !next.map { it.isLetterOrDigit() }.getOrElse(false))
+      if (count == n && closes && inside.isNotEmpty()) Some((inside.reversed(), cs.drop(count)))
+      else closing(cs.drop(count), d, n, Some(d), cs.take(count) + inside)
+    }
+    [c, *rest] -> closing(rest, d, n, Some(c), [c] + inside)
+  }
+
+  // A code span's text, to a run of exactly ticks backticks, and what's after it.
+  private codeEnd(
+    cs: List<Char>,
+    ticks: Int,
+    inside: List<Char>,
+  ): Option<(List<Char>, List<Char>)> = when (cs) {
+    [] -> None
+    ['`', *_] -> {
+      count = run(cs, '`')
+      if (count == ticks) Some((inside.reversed(), cs.drop(count)))
+      else codeEnd(cs.drop(count), ticks, cs.take(count) + inside)
+    }
+    [c, *rest] -> codeEnd(rest, ticks, [c] + inside)
+  }
+
+  // A code span's text: its line ends spaces, and one space taken from each end, if both have one
+  // and it isn't all spaces.
+  private spanText(code: List<Char>): String = {
+    spaced = code.map { if (it == '\n') ' ' else it }
+    trimmed = when (spaced) {
+      [' ', *_] if spaced.lastOrNone() == Some(' ') && spaced.any { it != ' ' } ->
+        spaced.drop(1).dropLast(1)
+      else -> spaced
+    }
+    text(trimmed)
+  }
+
+  // From after a link's [: its label, where it goes, its title, and what's after it.
+  private linked(cs: List<Char>): Option<(List<Char>, String, Option<String>, List<Char>)> =
+    label(cs, 0, []).flatMap { found ->
+      (text, rest) = found
+      when (rest) {
+        ['(', *more] -> destination(spaces(more)).flatMap { d ->
+          (url, afterUrl) = d
+          gap = spaces(afterUrl)
+          (title, afterTitle) = when (gap) {
+            [q, *_] if (q == '"' || q == '\'' || q == '(') && gap.size < afterUrl.size -> titled(
+              gap,
+            )
+            else -> (None, gap)
+          }
+          when (spaces(afterTitle)) {
+            [')', *after] -> Some((text, url, title, after))
+            else -> None
+          }
+        }
+        else -> None
+      }
+    }
+
+  // A link's label, to the ] that closes it, brackets in it balanced.
+  private label(
+    cs: List<Char>,
+    depth: Int,
+    inside: List<Char>,
+  ): Option<(List<Char>, List<Char>)> = when (cs) {
+    [] -> None
+    ['\\', c, *rest] -> label(rest, depth, [c, '\\'] + inside)
+    ['[', *rest] -> label(rest, depth + 1, ['['] + inside)
+    [']', *rest] -> if (depth == 0) Some((inside.reversed(), rest))
+    else label(rest, depth - 1, [']'] + inside)
+    [c, *rest] -> label(rest, depth, [c] + inside)
+  }
+
+  // Where a link goes: in <...>, or to the first space, its parentheses balanced; and what's after.
+  private destination(cs: List<Char>): Option<(String, List<Char>)> = when (cs) {
+    ['<', *rest] -> {
+      inside = rest.takeWhile { it != '>' && it != '\n' }
+      if (rest.drop(inside.size).firstOrNone() == Some('>')) Some(
+        (text(inside), rest.drop(inside.size + 1)),
+      )
+      else None
+    }
+    else -> bare(cs, 0, [])
+  }
+
+  private bare(cs: List<Char>, depth: Int, inside: List<Char>): Option<(String, List<Char>)> =
+    when (cs) {
+      ['\\', c, *rest] if isPunctuation(c) -> bare(rest, depth, [c] + inside)
+      ['(', *rest] -> bare(rest, depth + 1, ['('] + inside)
+      [')', *rest] if depth > 0 -> bare(rest, depth - 1, [')'] + inside)
+      [c, *rest] if !c.isWhitespace() && c != ')' -> bare(rest, depth, [c] + inside)
+      else -> if (depth == 0) Some((text(inside.reversed()), cs)) else None
+    }
+
+  // A link's title, in quotes or parentheses, and what's after it.
+  private titled(cs: List<Char>): (Option<String>, List<Char>) = when (cs) {
+    [q, *rest] -> {
+      close = if (q == '(') ')' else q
+      inside = rest.takeWhile { it != close }
+      after = rest.drop(inside.size + 1)
+      if (rest.drop(inside.size).firstOrNone() == Some(close)) (Some(text(inside)), after)
+      else (None, cs)
+    }
+    [] -> (None, cs)
+  }
+
+  // From after <, a URL with a scheme, to >, and what's after it.
+  private autolink(cs: List<Char>, inside: List<Char>): Option<(String, List<Char>)> = when (cs) {
+    ['>', *rest] -> {
+      url = text(inside.reversed())
+      scheme = url.substringBefore(":")
+      if (url.contains(":") && scheme.length >= 2 && scheme.toList().all { it.isLetterOrDigit() || it == '+' || it == '.' || it == '-' })
+        Some((url, rest))
+      else None
+    }
+    [c, *rest] if !c.isWhitespace() && c != '<' -> autolink(rest, [c] + inside)
+    else -> None
+  }
+
+  // What the inlines say, as text: an image's alt.
+  private plainText(inlines: List<Inline>): String = inlines.map { i ->
+    when (i) {
+      Plain(text) -> text
+      Emphasis(content) -> plainText(content)
+      Strong(content) -> plainText(content)
+      CodeSpan(code) -> code
+      Link(content, _, _) -> plainText(content)
+      Image(alt, _, _) -> alt
+      LineBreak -> "\n"
+    }
+  }.joinToString("")
+
+  // Text next to text, together.
+  private joined(inlines: List<Inline>): List<Inline> = inlines.fold([]) { done, i ->
+    when ((done.lastOrNone(), i)) {
+      (Some(Plain(a)), Plain(b)) -> done.dropLast(1) + [Plain(a + b)]
+      else -> done + [i]
+    }
+  }
+
+  private spaces(
+    cs: List<Char>,
+  ): List<Char> = cs.drop(cs.takeWhile { it == ' ' || it == '\n' }.size)
+
+  private run(cs: List<Char>, c: Char): Int = cs.takeWhile { it == c }.size
+
+  private text(cs: List<Char>): String = cs.map { it.toString() }.joinToString("")
+
+  private isPunctuation(
+    c: Char,
+  ): Boolean = "!\"#\$%&'()*+,-./:;<=>?@[\\]^_`{|}~".contains(c.toString())
+}
