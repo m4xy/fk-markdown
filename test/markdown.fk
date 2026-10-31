@@ -4,8 +4,11 @@ import uk.m4xy.markdown.Markdowns
 md(text: String): String = Markdowns.render(text)
 
 @Test headings() = {
-  assertEquals("<h1>One</h1><h3>Three</h3>", md("# One\n### Three ###"))
-  assertEquals("<h1>Over</h1><h2>Under</h2>", md("Over\n====\n\nUnder\n---"))
+  assertEquals("""<h1 id="one">One</h1><h3 id="three">Three</h3>""", md("# One\n### Three ###"))
+  assertEquals(
+    """<h1 id="over">Over</h1><h2 id="under">Under</h2>""",
+    md("Over\n====\n\nUnder\n---"),
+  )
   assertEquals("<p>#Not one</p>", md("#Not one"))
 }
 
@@ -62,7 +65,7 @@ md(text: String): String = Markdowns.render(text)
 }
 
 @Test quotes() = assertEquals(
-  "<blockquote><h2>Said</h2><p>so <em>there</em></p></blockquote><p>after</p>",
+  """<blockquote><h2 id="said">Said</h2><p>so <em>there</em></p></blockquote><p>after</p>""",
   md("> ## Said\n> so *there*\n\nafter"),
 )
 
@@ -85,8 +88,8 @@ md(text: String): String = Markdowns.render(text)
     """<p><a href="https://en.wikipedia.org/wiki/F_(x)">F</a></p>""",
     md("[F](https://en.wikipedia.org/wiki/F_(x))"),
   )
-  assertEquals("<h1>C#</h1>", md("# C#"))
-  assertEquals("<h2>Title</h2>", md("## Title ##"))
+  assertEquals("""<h1 id="c">C#</h1>""", md("# C#"))
+  assertEquals("""<h2 id="title">Title</h2>""", md("## Title ##"))
   assertEquals(
     "<ol><li><p>step</p><pre><code>run it\n</code></pre></li><li><p>done</p></li></ol>",
     md("1. step\n\n   ```\n   run it\n   ```\n2. done"),
@@ -114,3 +117,9 @@ md(text: String): String = Markdowns.render(text)
   )
   assertEquals("<p>a | b\nnot | a | table</p>", md("a | b\nnot | a | table"))
 }
+
+// A heading's id is its text, as GitHub makes it; the same text again has a number after it.
+@Test headingsHaveIds() = assertEquals(
+  """<h2 id="effects-with-operations">Effects <em>with</em> operations</h2><h2 id="effects-with-operations-1">Effects with operations</h2>""",
+  md("## Effects *with* operations\n## Effects with operations"),
+)

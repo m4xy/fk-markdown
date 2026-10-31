@@ -22,7 +22,9 @@ is. Reference links and HTML blocks aren't read yet.
 
 `Markdowns.parse` gives the document's blocks, `Block` and `Inline` values, to look through or
 change; `Markdowns.html` writes blocks as fk-html's `Html`, to put in a page built with it; and
-`Markdowns.render` does both, to text.
+`Markdowns.render` does both, to text. Each heading has an id, as GitHub gives one, so a link
+to `#effects-with-operations` goes to the heading "Effects with operations"; `Markdowns.slugOf`
+says what a heading's id is.
 
 ## The command
 

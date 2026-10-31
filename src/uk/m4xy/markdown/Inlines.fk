@@ -212,7 +212,7 @@ internal module Inlines {
   }
 
   // What the inlines say, as text: an image's alt.
-  private plainText(inlines: List<Inline>): String = inlines.map { i ->
+  internal plainText(inlines: List<Inline>): String = inlines.map { i ->
     when (i) {
       Plain(text) -> text
       Emphasis(content) -> plainText(content)

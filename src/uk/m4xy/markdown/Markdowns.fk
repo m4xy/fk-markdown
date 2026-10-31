@@ -1,3 +1,4 @@
+import fckt.collections.Maps.*
 import uk.m4xy.html.*
 import uk.m4xy.html.Htmls.*
 import uk.m4xy.html.Tags.*
@@ -13,21 +14,44 @@ module Markdowns {
   render(text: String): String = Htmls.render(html(parse(text)))
 
   // The blocks, as HTML.
-  html(blocks: List<Block>): Html = markup { blocks.forEach { block(it, false) } }
+  html(blocks: List<Block>): Html = {
+    slugs = Slugs(emptyMap())
+    markup { blocks.forEach { block(it, false, slugs) } }
+  }
+
+  // What a heading's id is, as GitHub makes it: its text lower-cased, a space a -, and anything but
+  // letters, digits, - and _ left out. "Effects with operations" is effects-with-operations.
+  slugOf(text: String): String = text.trim().lowercase().toList().filter { c ->
+    c.isLetterOrDigit() || c == ' ' || c == '-' || c == '_'
+  }.map { if (it == ' ') "-" else it.toString() }.joinToString("")
+
+  // The ids given so far, and how many times each, as a heading of the same text again is
+  // effects-1, then effects-2.
+  private type Slugs(var used: Map<String, Int>)
+
+  @Mutating private slugged(slugs: Slugs, content: List<Inline>): String = {
+    base = slugOf(uk.m4xy.markdown.Inlines.plainText(content))
+    times = slugs.used.getOrDefault(base, 0)
+    slugs.used = slugs.used.put(base, times + 1)
+    if (times == 0) base else "$base-$times"
+  }
 
   // A block, its paragraphs as their text alone if it's in a tight list's item.
-  @Markup private block(b: Block, tight: Boolean): Unit = when (b) {
-    Heading(level, content) -> element("h$level") { inlines(content) }
+  @Markup @Mutating private block(b: Block, tight: Boolean, slugs: Slugs): Unit = when (b) {
+    Heading(level, content) -> element(
+      "h$level",
+      [id(slugged(slugs, content))],
+    ) { inlines(content) }
     Paragraph(content) -> if (tight) inlines(content) else p { inlines(content) }
     CodeBlock(language, source) -> pre {
       code(language.map { [classes(["language-$it"])] }.getOrElse([])) { text(source) }
     }
-    Quote(blocks) -> blockquote { blocks.forEach { block(it, false) } }
-    BulletList(items, isTight) -> ul { items.forEach { item(it, isTight) } }
+    Quote(blocks) -> blockquote { blocks.forEach { block(it, false, slugs) } }
+    BulletList(items, isTight) -> ul { items.forEach { item(it, isTight, slugs) } }
     NumberedList(start, items, isTight) -> ol(
       if (start == 1) [] else [attribute("start", "$start")],
     ) {
-      items.forEach { item(it, isTight) }
+      items.forEach { item(it, isTight, slugs) }
     }
     Rule -> hr()
     Table(alignments, header, rows) -> table {
@@ -48,8 +72,8 @@ module Markdowns {
       element(tag, aligned) { inlines(cell) }
     }
 
-  @Markup private item(blocks: List<Block>, tight: Boolean): Unit =
-    li { blocks.forEach { block(it, tight) } }
+  @Markup @Mutating private item(blocks: List<Block>, tight: Boolean, slugs: Slugs): Unit =
+    li { blocks.forEach { block(it, tight, slugs) } }
 
   @Markup private inlines(content: List<Inline>): Unit = content.forEach { i ->
     when (i) {
