@@ -1,14 +1,13 @@
 import uk.m4xy.html.*
 import uk.m4xy.html.Htmls.*
 import uk.m4xy.html.Tags.*
-import uk.m4xy.markdown.Blocks
 
 // Markdown, read as CommonMark reads its core, and written as HTML with fk-html: headings,
 // paragraphs, code, quotes, lists, rules, emphasis, code spans, links and images. HTML in it is
 // text, escaped as any is, so what anyone wrote can be shown as it is.
 module Markdowns {
   // The document's blocks.
-  parse(text: String): List<Block> = Blocks.of(text)
+  parse(text: String): List<Block> = uk.m4xy.markdown.Blocks.of(text)
 
   // The document, as HTML text.
   render(text: String): String = Htmls.render(html(parse(text)))
